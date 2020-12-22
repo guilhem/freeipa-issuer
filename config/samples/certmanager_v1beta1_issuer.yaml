@@ -1,0 +1,20 @@
+apiVersion: certmanager.freeipa.org/v1beta1
+kind: Issuer
+metadata:
+  name: issuer-sample
+spec:
+  host: freeipa.example.test
+  user:
+    name: freeipa-auth
+    key: user
+  password:
+    name: freeipa-auth
+    key: password
+
+  # Optionals
+  serviceName: HTTP
+  addHost: true
+  addService: true
+  addPrincipal: true
+  ca: ipa
+  insecure: false

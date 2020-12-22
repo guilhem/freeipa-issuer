@@ -1,0 +1,9 @@
+domain: freeipa.org
+layout: go.kubebuilder.io/v2
+projectName: freeipa-issuer
+repo: github.com/guilhem/freeipa-issuer
+resources:
+- group: certmanager
+  kind: Issuer
+  version: v1beta1
+version: 3-alpha

@@ -1,0 +1,162 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.3.0
+  creationTimestamp: null
+  name: issuers.certmanager.freeipa.org
+spec:
+  group: certmanager.freeipa.org
+  names:
+    kind: Issuer
+    listKind: IssuerList
+    plural: issuers
+    singular: issuer
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: Issuer is the Schema for the issuers API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: IssuerSpec defines the desired state of Issuer
+          properties:
+            addHost:
+              default: true
+              type: boolean
+            addPrincipal:
+              default: true
+              type: boolean
+            addService:
+              default: true
+              type: boolean
+            ca:
+              default: ipa
+              type: string
+            host:
+              description: Host remote FreeIPA server
+              minLength: 1
+              type: string
+            insecure:
+              default: false
+              type: boolean
+            password:
+              description: SecretKeySelector selects a key of a Secret.
+              properties:
+                key:
+                  description: The key of the secret to select from.  Must be a valid
+                    secret key.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    TODO: Add other useful fields. apiVersion, kind, uid?'
+                  type: string
+                optional:
+                  description: Specify whether the Secret or its key must be defined
+                  type: boolean
+              required:
+              - key
+              type: object
+            serviceName:
+              default: HTTP
+              type: string
+            user:
+              description: SecretKeySelector selects a key of a Secret.
+              properties:
+                key:
+                  description: The key of the secret to select from.  Must be a valid
+                    secret key.
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                    TODO: Add other useful fields. apiVersion, kind, uid?'
+                  type: string
+                optional:
+                  description: Specify whether the Secret or its key must be defined
+                  type: boolean
+              required:
+              - key
+              type: object
+          required:
+          - addHost
+          - addPrincipal
+          - addService
+          - ca
+          - host
+          - insecure
+          - password
+          - serviceName
+          - user
+          type: object
+        status:
+          description: IssuerStatus defines the observed state of Issuer
+          properties:
+            conditions:
+              items:
+                description: IssuerCondition contains condition information for the
+                  issuer.
+                properties:
+                  lastTransitionTime:
+                    description: LastTransitionTime is the timestamp corresponding
+                      to the last status change of this condition.
+                    format: date-time
+                    type: string
+                  message:
+                    description: Message is a human readable description of the details
+                      of the last transition, complementing reason.
+                    type: string
+                  reason:
+                    description: Reason is a brief machine readable explanation for
+                      the condition's last transition.
+                    type: string
+                  status:
+                    allOf:
+                    - enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                    - enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                    description: Status of the condition, one of ('True', 'False',
+                      'Unknown').
+                    type: string
+                  type:
+                    description: Type of the condition, currently ('Ready').
+                    enum:
+                    - Ready
+                    type: string
+                required:
+                - status
+                - type
+                type: object
+              type: array
+          type: object
+      type: object
+  version: v1beta1
+  versions:
+  - name: v1beta1
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
