@@ -32,26 +32,23 @@ import (
 	provisioners "github.com/guilhem/freeipa-issuer/provisionners"
 )
 
-// IssuerReconciler reconciles a Issuer object
-type IssuerReconciler struct {
+// ClusterIssuerReconciler reconciles a ClusterIssuer object
+type ClusterIssuerReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
-
-	Clock clock.Clock
+	Clock  clock.Clock
 }
 
-// +kubebuilder:rbac:groups=certmanager.freeipa.org,resources=issuers,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=certmanager.freeipa.org,resources=issuers/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;create;update
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=certmanager.freeipa.org,resources=clusterissuers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=certmanager.freeipa.org,resources=clusterissuers/status,verbs=get;update;patch
 
-func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (reconcile.Result, error) {
-	log := r.Log.WithValues("issuer", req.NamespacedName)
+func (r *ClusterIssuerReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
+	log := r.Log.WithValues("clusterissuer", req.NamespacedName)
 
-	iss := new(api.Issuer)
+	iss := new(api.ClusterIssuer)
 	if err := r.Client.Get(ctx, req.NamespacedName, iss); err != nil {
-		log.Error(err, "failed to retrieve Issuer resource")
+		log.Error(err, "failed to retrieve ClusterIssuer resource")
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -79,18 +76,18 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rec
 
 	provisioners.Store(req.NamespacedName, p)
 
-	return reconcile.Result{}, r.setStatus(ctx, iss, api.ConditionTrue, "Verified", "Issuer verified and ready to sign certificates")
+	return reconcile.Result{}, r.setStatus(ctx, iss, api.ConditionTrue, "Verified", "ClusterIssuer verified and ready to sign certificates")
 }
 
 // setStatus is a helper function to set the Issuer status condition with reason and message, and update the API.
-func (r *IssuerReconciler) setStatus(ctx context.Context, iss *api.Issuer, status api.ConditionStatus, reason, message string) error {
+func (r *ClusterIssuerReconciler) setStatus(ctx context.Context, iss *api.ClusterIssuer, status api.ConditionStatus, reason, message string) error {
 	SetIssuerCondition(&iss.Status, api.ConditionReady, status, r.Log, r.Clock, reason, message)
 
 	return r.Client.Status().Update(ctx, iss)
 }
 
-func (r *IssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ClusterIssuerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&api.Issuer{}).
+		For(&api.ClusterIssuer{}).
 		Complete(r)
 }

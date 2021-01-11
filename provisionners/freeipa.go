@@ -26,22 +26,22 @@ type FreeIPAPKI struct {
 
 // New returns a new provisioner, configured with the information in the
 // given issuer.
-func New(iss *api.Issuer, user, password string, insecure bool) (*FreeIPAPKI, error) {
+func New(namespacedName types.NamespacedName, spec *api.IssuerSpec, user, password string, insecure bool) (*FreeIPAPKI, error) {
 	tspt := http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: insecure,
 		},
 	}
 
-	client, err := freeipa.Connect(iss.Spec.Host, &tspt, user, password)
+	client, err := freeipa.Connect(spec.Host, &tspt, user, password)
 	if err != nil {
 		return nil, err
 	}
 
 	p := &FreeIPAPKI{
-		name:   fmt.Sprintf("%s.%s", iss.Name, iss.Namespace),
+		name:   fmt.Sprintf("%s.%s", namespacedName.Name, namespacedName.Namespace),
 		client: client,
-		spec:   &iss.Spec,
+		spec:   spec,
 	}
 
 	return p, nil

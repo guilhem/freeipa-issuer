@@ -34,6 +34,26 @@ rules:
 - apiGroups:
   - certmanager.freeipa.org
   resources:
+  - clusterissuers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certmanager.freeipa.org
+  resources:
+  - clusterissuers/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - certmanager.freeipa.org
+  resources:
   - issuers
   verbs:
   - create
