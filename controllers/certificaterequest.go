@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
 	provisioners "github.com/guilhem/freeipa-issuer/provisionners"
 	cmutil "github.com/jetstack/cert-manager/pkg/api/util"
@@ -15,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -22,7 +22,6 @@ import (
 // that references this controller.
 type CertificateRequestReconciler struct {
 	client.Client
-	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
@@ -32,7 +31,7 @@ type CertificateRequestReconciler struct {
 // Reconcile reconciles CertificateRequest by fetching a Cloudflare API provisioner from
 // the referenced Issuer, and providing the request's CSR.
 func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := r.Log.WithValues("certificaterequest", req.NamespacedName)
+	log := log.FromContext(ctx).WithValues("certificaterequest", req.NamespacedName)
 
 	cr := &certmanager.CertificateRequest{}
 	if err := r.Client.Get(ctx, req.NamespacedName, cr); err != nil {

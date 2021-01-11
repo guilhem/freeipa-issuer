@@ -20,12 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
@@ -35,7 +35,6 @@ import (
 // ClusterIssuerReconciler reconciles a ClusterIssuer object
 type ClusterIssuerReconciler struct {
 	client.Client
-	Log    logr.Logger
 	Scheme *runtime.Scheme
 	Clock  clock.Clock
 }
@@ -44,7 +43,7 @@ type ClusterIssuerReconciler struct {
 // +kubebuilder:rbac:groups=certmanager.freeipa.org,resources=clusterissuers/status,verbs=get;update;patch
 
 func (r *ClusterIssuerReconciler) Reconcile(ctx context.Context, req reconcile.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("clusterissuer", req.NamespacedName)
+	log := log.FromContext(ctx).WithValues("clusterissuer", req.NamespacedName)
 
 	iss := new(api.ClusterIssuer)
 	if err := r.Client.Get(ctx, req.NamespacedName, iss); err != nil {
@@ -81,7 +80,7 @@ func (r *ClusterIssuerReconciler) Reconcile(ctx context.Context, req reconcile.R
 
 // setStatus is a helper function to set the Issuer status condition with reason and message, and update the API.
 func (r *ClusterIssuerReconciler) setStatus(ctx context.Context, iss *api.ClusterIssuer, status api.ConditionStatus, reason, message string) error {
-	SetIssuerCondition(&iss.Status, api.ConditionReady, status, r.Log, r.Clock, reason, message)
+	SetIssuerCondition(ctx, &iss.Status, api.ConditionReady, status, r.Clock, reason, message)
 
 	return r.Client.Status().Update(ctx, iss)
 }

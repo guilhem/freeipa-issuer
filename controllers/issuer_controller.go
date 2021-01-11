@@ -20,12 +20,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
@@ -35,7 +35,6 @@ import (
 // IssuerReconciler reconciles a Issuer object
 type IssuerReconciler struct {
 	client.Client
-	Log    logr.Logger
 	Scheme *runtime.Scheme
 
 	Clock clock.Clock
@@ -47,7 +46,7 @@ type IssuerReconciler struct {
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch
 
 func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (reconcile.Result, error) {
-	log := r.Log.WithValues("issuer", req.NamespacedName)
+	log := log.FromContext(ctx).WithValues("issuer", req.NamespacedName)
 
 	iss := new(api.Issuer)
 	if err := r.Client.Get(ctx, req.NamespacedName, iss); err != nil {
@@ -84,7 +83,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rec
 
 // setStatus is a helper function to set the Issuer status condition with reason and message, and update the API.
 func (r *IssuerReconciler) setStatus(ctx context.Context, iss *api.Issuer, status api.ConditionStatus, reason, message string) error {
-	SetIssuerCondition(&iss.Status, api.ConditionReady, status, r.Log, r.Clock, reason, message)
+	SetIssuerCondition(ctx, &iss.Status, api.ConditionReady, status, r.Clock, reason, message)
 
 	return r.Client.Status().Update(ctx, iss)
 }

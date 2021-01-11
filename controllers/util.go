@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -13,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // SetIssuerCondition will set a condition on the given Issuer.
@@ -26,7 +26,9 @@ import (
 // If a condition of the same type and different state already exists, the
 // condition will be updated and the LastTransitionTime set to the current
 // time.
-func SetIssuerCondition(status *api.IssuerStatus, conditionType api.ConditionType, conditionStatus api.ConditionStatus, log logr.Logger, cl clock.Clock, reason, message string) {
+func SetIssuerCondition(ctx context.Context, status *api.IssuerStatus, conditionType api.ConditionType, conditionStatus api.ConditionStatus, cl clock.Clock, reason, message string) {
+	log := log.FromContext(ctx)
+
 	now := metav1.NewTime(cl.Now())
 	c := api.IssuerCondition{
 		Type:               conditionType,

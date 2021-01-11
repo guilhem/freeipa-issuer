@@ -27,6 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
@@ -36,7 +37,7 @@ import (
 
 var (
 	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	setupLog = log.Log.WithName("setup")
 )
 
 func init() {
@@ -46,6 +47,8 @@ func init() {
 	// +kubebuilder:scaffold:scheme
 
 	utilruntime.Must(certmanager.AddToScheme(scheme))
+
+	log.SetLogger(zap.New())
 }
 
 func main() {
@@ -56,8 +59,6 @@ func main() {
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.Parse()
-
-	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
@@ -73,7 +74,6 @@ func main() {
 
 	if err = (&controllers.CertificateRequestReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CertificateRequest"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "CertificateRequest")
@@ -82,7 +82,6 @@ func main() {
 
 	if err = (&controllers.IssuerReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Issuer"),
 		Scheme: mgr.GetScheme(),
 		Clock:  clock.RealClock{},
 	}).SetupWithManager(mgr); err != nil {
@@ -91,7 +90,6 @@ func main() {
 	}
 	if err = (&controllers.ClusterIssuerReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ClusterIssuer"),
 		Scheme: mgr.GetScheme(),
 		Clock:  clock.RealClock{},
 	}).SetupWithManager(mgr); err != nil {
