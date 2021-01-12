@@ -143,7 +143,7 @@ func (s *FreeIPAPKI) Sign(ctx context.Context, cr *certmanager.CertificateReques
 
 	cert, err := s.client.CertShow(reqCertShow, &freeipa.CertShowOptionalArgs{Chain: freeipa.Bool(true)})
 	if err != nil || len(*cert.Result.CertificateChain) == 0 {
-		log.Error(err, "fail to get certificate FALLBACK", "request", result)
+		log.Error(err, "fail to get certificate FALLBACK", "requestResult", result)
 
 		c, ok := result.Result.(map[string]interface{})[certKey].(string)
 		if !ok || c == "" {

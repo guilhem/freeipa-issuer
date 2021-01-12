@@ -513,8 +513,6 @@ github.com/stretchr/testify v1.5.1/go.mod h1:5W2xD1RspED5o8YsWQXVCued0rvSQ+mT+I5
 github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd0=
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/subosito/gotenv v1.2.0/go.mod h1:N0PQaV/YGNqwC0u51sEeR/aUtSLEXKX9iv69rRypqCw=
-github.com/tehwalris/go-freeipa v0.0.0-20200226102930-f1a87e4d06ba h1:IZZiOQzfZ7M+jRvi439CRMsgQEWu9wv+RITFzu9Mb1o=
-github.com/tehwalris/go-freeipa v0.0.0-20200226102930-f1a87e4d06ba/go.mod h1:fNLG3fqJc8qW0KLLsYnbLRVQFFtqeTvg8Sn8E526IGs=
 github.com/tehwalris/go-freeipa v0.0.0-20200322083409-e462fc554b76 h1:cGqaWmXWGzOg5RcM2pLhYhA5nlGFb973gkz+2hLALBQ=
 github.com/tehwalris/go-freeipa v0.0.0-20200322083409-e462fc554b76/go.mod h1:fNLG3fqJc8qW0KLLsYnbLRVQFFtqeTvg8Sn8E526IGs=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
