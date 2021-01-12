@@ -12,6 +12,7 @@ import (
 	"github.com/jetstack/cert-manager/pkg/util/pki"
 	"github.com/tehwalris/go-freeipa/freeipa"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var collection = new(sync.Map)
@@ -70,6 +71,8 @@ const certKey = "certificate"
 // Sign sends the certificate requests to the CA and returns the signed
 // certificate.
 func (s *FreeIPAPKI) Sign(ctx context.Context, cr *certmanager.CertificateRequest) (CertPem, CaPem, error) {
+	log := log.FromContext(ctx).WithName("sign").WithValues("request", cr)
+
 	csr, err := pki.DecodeX509CertificateRequestBytes(cr.Spec.Request)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to decode CSR for signing: %s", err)
@@ -134,16 +137,29 @@ func (s *FreeIPAPKI) Sign(ctx context.Context, cr *certmanager.CertificateReques
 		SerialNumber: result.Value,
 	}
 
+	var certPem string
+	var caPem string
+
 	cert, err := s.client.CertShow(reqCertShow, &freeipa.CertShowOptionalArgs{Chain: freeipa.Bool(true)})
-	if err != nil || len(*cert.Result.CertificateChain) < 2 {
-		return nil, nil, fmt.Errorf("can't find certificate for: %s", result.String())
+	if err != nil || len(*cert.Result.CertificateChain) == 0 {
+		log.Error(err, "fail to get certificate FALLBACK", "request", result)
+
+		c, ok := result.Result.(map[string]interface{})[certKey].(string)
+		if !ok || c == "" {
+			return nil, nil, fmt.Errorf("can't find certificate for: %s", result.String())
+		}
+
+		certPem = fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", c)
+	} else {
+		for i, c := range *cert.Result.CertificateChain {
+			chain := fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", c)
+			if i == 0 {
+				certPem = chain
+			} else {
+				caPem += chain
+			}
+		}
 	}
-
-	certPem := (*cert.Result.CertificateChain)[0]
-	caPem := (*cert.Result.CertificateChain)[1]
-
-	certPem = fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----", certPem)
-	caPem = fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----", caPem)
 
 	return []byte(certPem), []byte(caPem), nil
 }
