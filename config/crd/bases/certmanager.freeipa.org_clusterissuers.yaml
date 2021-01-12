@@ -6,20 +6,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: issuers.certmanager.freeipa.org
+  name: clusterissuers.certmanager.freeipa.org
 spec:
   group: certmanager.freeipa.org
   names:
-    kind: Issuer
-    listKind: IssuerList
-    plural: issuers
-    singular: issuer
-  scope: Namespaced
+    kind: ClusterIssuer
+    listKind: ClusterIssuerList
+    plural: clusterissuers
+    singular: clusterissuer
+  scope: Cluster
   versions:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: Issuer is the Schema for the issuers API
+        description: ClusterIssuer is the Schema for the clusterissuers API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

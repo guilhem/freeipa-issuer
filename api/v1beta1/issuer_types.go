@@ -31,9 +31,9 @@ type IssuerSpec struct {
 
 	// Host remote FreeIPA server
 	// +kubebuilder:validation:MinLength=1
-	Host     string                    `json:"host"`
-	User     *corev1.SecretKeySelector `json:"user"`
-	Password *corev1.SecretKeySelector `json:"password"`
+	Host     string             `json:"host"`
+	User     *SecretKeySelector `json:"user"`
+	Password *SecretKeySelector `json:"password"`
 
 	// +kubebuilder:default=HTTP
 	ServiceName string `json:"serviceName"`
@@ -136,6 +136,14 @@ type IssuerCondition struct {
 	// transition, complementing reason.
 	// +optional
 	Message string `json:"message,omitempty"`
+}
+
+// SecretKeySelector selects a key of a Secret.
+type SecretKeySelector struct {
+	// The name and namespace of the secret to select from.
+	corev1.SecretReference `json:",inline" protobuf:"bytes,1,opt,name=secretReference"`
+	// The key of the secret to select from.  Must be a valid secret key.
+	Key string `json:"key" protobuf:"bytes,2,opt,name=key"`
 }
 
 func init() {
