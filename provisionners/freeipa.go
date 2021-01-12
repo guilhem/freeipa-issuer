@@ -135,7 +135,7 @@ func (s *FreeIPAPKI) Sign(ctx context.Context, cr *certmanager.CertificateReques
 	}
 
 	reqCertShow := &freeipa.CertShowArgs{
-		SerialNumber: result.Result.(map[string]interface{})["serial_number"].(int),
+		SerialNumber: int(result.Result.(map[string]interface{})["serial_number"].(float64)),
 	}
 
 	var certPem string
