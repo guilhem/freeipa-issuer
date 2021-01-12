@@ -22,7 +22,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,8 +35,6 @@ import (
 type IssuerReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
-
-	Clock clock.Clock
 }
 
 // +kubebuilder:rbac:groups=certmanager.freeipa.org,resources=issuers,verbs=get;list;watch;create;update;patch;delete
@@ -83,7 +80,7 @@ func (r *IssuerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (rec
 
 // setStatus is a helper function to set the Issuer status condition with reason and message, and update the API.
 func (r *IssuerReconciler) setStatus(ctx context.Context, iss *api.Issuer, status api.ConditionStatus, reason, message string) error {
-	SetIssuerCondition(ctx, &iss.Status, api.ConditionReady, status, r.Clock, reason, message)
+	SetIssuerCondition(ctx, &iss.Status, api.ConditionReady, status, reason, message)
 
 	return r.Client.Status().Update(ctx, iss)
 }
