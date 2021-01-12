@@ -134,26 +134,16 @@ func (s *FreeIPAPKI) Sign(ctx context.Context, cr *certmanager.CertificateReques
 		SerialNumber: result.Value,
 	}
 
-	var certPem string
-	var caPem string
-
-	cert, err := s.client.CertShow(reqCertShow, &freeipa.CertShowOptionalArgs{})
+	cert, err := s.client.CertShow(reqCertShow, &freeipa.CertShowOptionalArgs{Chain: freeipa.Bool(true)})
 	if err != nil || len(*cert.Result.CertificateChain) < 2 {
-		// Try fallback with parsing result
-		certPem, ok := result.Result.(map[string]interface{})[certKey].(string)
-
-		if !ok || certPem == "" {
-			return nil, nil, fmt.Errorf("can't find certificate for: %s", result.String())
-		}
-	} else {
-		certPem = (*cert.Result.CertificateChain)[0]
-		caPem = (*cert.Result.CertificateChain)[1]
+		return nil, nil, fmt.Errorf("can't find certificate for: %s", result.String())
 	}
+
+	certPem := (*cert.Result.CertificateChain)[0]
+	caPem := (*cert.Result.CertificateChain)[1]
 
 	certPem = fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----", certPem)
-	if caPem != "" {
-		caPem = fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----", caPem)
-	}
+	caPem = fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----", caPem)
 
 	return []byte(certPem), []byte(caPem), nil
 }
