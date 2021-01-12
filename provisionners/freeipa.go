@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
@@ -101,8 +100,6 @@ func (s *FreeIPAPKI) Sign(ctx context.Context, cr *certmanager.CertificateReques
 
 	// Adding service
 	if s.spec.AddService {
-
-		// Try to use find
 		svcList, err := s.client.ServiceFind(
 			name,
 			&freeipa.ServiceFindArgs{},
@@ -112,33 +109,13 @@ func (s *FreeIPAPKI) Sign(ctx context.Context, cr *certmanager.CertificateReques
 			})
 
 		if err != nil {
-			// Fallback
-			realmResult, err := s.client.RealmdomainsShow(&freeipa.RealmdomainsShowArgs{}, &freeipa.RealmdomainsShowOptionalArgs{})
-			if err != nil {
-				return nil, nil, err
+			if !s.spec.IgnoreError {
+				return nil, nil, fmt.Errorf("fail listing services: %v", err)
 			}
-
-			canonicalName := fmt.Sprintf("%s@%s", name, strings.ToUpper(realmResult.Result.Associateddomain[0]))
-
-			if _, err := s.client.ServiceShow(&freeipa.ServiceShowArgs{Krbcanonicalname: canonicalName}, &freeipa.ServiceShowOptionalArgs{}); err != nil {
-				if ipaE, ok := err.(*freeipa.Error); ok {
-					fmt.Printf("FreeIPA error %v: %v\n", ipaE.Code, ipaE.Message)
-					if ipaE.Code == freeipa.NotFoundCode {
-						if _, err := s.client.ServiceAdd(&freeipa.ServiceAddArgs{Krbcanonicalname: canonicalName}, &freeipa.ServiceAddOptionalArgs{Force: freeipa.Bool(true)}); err != nil {
-							return nil, nil, fmt.Errorf("fail adding service: %v", err)
-						}
-					}
-				} else {
-					return nil, nil, fmt.Errorf("fail getting service: %v", err)
-				}
-			}
-			return nil, nil, fmt.Errorf("fail listing services: %v", err)
-		} else {
-			// more robust version with find
-			if svcList.Count == 0 {
-				if _, err := s.client.ServiceAdd(&freeipa.ServiceAddArgs{Krbcanonicalname: name}, &freeipa.ServiceAddOptionalArgs{Force: freeipa.Bool(true)}); err != nil {
-					return nil, nil, fmt.Errorf("fail adding service: %v", err)
-				}
+			s.client.ServiceAdd(&freeipa.ServiceAddArgs{Krbcanonicalname: name}, &freeipa.ServiceAddOptionalArgs{Force: freeipa.Bool(true)})
+		} else if svcList.Count == 0 {
+			if _, err := s.client.ServiceAdd(&freeipa.ServiceAddArgs{Krbcanonicalname: name}, &freeipa.ServiceAddOptionalArgs{Force: freeipa.Bool(true)}); err != nil {
+				return nil, nil, fmt.Errorf("fail adding service: %v", err)
 			}
 		}
 	}
