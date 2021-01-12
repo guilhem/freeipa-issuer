@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
@@ -134,7 +135,7 @@ func (s *FreeIPAPKI) Sign(ctx context.Context, cr *certmanager.CertificateReques
 	}
 
 	reqCertShow := &freeipa.CertShowArgs{
-		SerialNumber: result.Value,
+		SerialNumber: result.Result.(map[string]interface{})["serial_number"].(int),
 	}
 
 	var certPem string
@@ -149,17 +150,29 @@ func (s *FreeIPAPKI) Sign(ctx context.Context, cr *certmanager.CertificateReques
 			return nil, nil, fmt.Errorf("can't find certificate for: %s", result.String())
 		}
 
-		certPem = fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", c)
+		certPem = formatCertificate(c)
 	} else {
 		for i, c := range *cert.Result.CertificateChain {
-			chain := fmt.Sprintf("-----BEGIN CERTIFICATE-----\n%s\n-----END CERTIFICATE-----\n", c)
+			c = formatCertificate(c)
 			if i == 0 {
-				certPem = chain
+				certPem = c
 			} else {
-				caPem += chain
+				caPem = strings.Join([]string{caPem, c}, "\n\n")
 			}
 		}
 	}
 
-	return []byte(certPem), []byte(caPem), nil
+	return []byte(strings.TrimSpace(certPem)), []byte(strings.TrimSpace(caPem)), nil
+}
+
+func formatCertificate(cert string) string {
+	header := "-----BEGIN CERTIFICATE-----"
+	footer := "-----END CERTIFICATE-----"
+	if !strings.HasPrefix(cert, header) {
+		cert = strings.Join([]string{header, cert}, "\n")
+	}
+	if !strings.HasSuffix(cert, footer) {
+		cert = strings.Join([]string{cert, footer}, "\n")
+	}
+	return cert
 }
