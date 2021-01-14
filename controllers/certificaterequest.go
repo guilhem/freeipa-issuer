@@ -33,6 +33,8 @@ type CertificateRequestReconciler struct {
 func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := log.FromContext(ctx).WithValues("certificaterequest", req.NamespacedName)
 
+	log.Info("begin")
+
 	cr := &certmanager.CertificateRequest{}
 	if err := r.Client.Get(ctx, req.NamespacedName, cr); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -45,13 +47,13 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req reconc
 	}
 
 	if cr.Spec.IssuerRef.Group != "" && cr.Spec.IssuerRef.Group != api.GroupVersion.Group {
-		log.V(4).Info("resource does not specify an issuerRef group name that we are responsible for", "group", cr.Spec.IssuerRef.Group)
+		log.Info("resource does not specify an issuerRef group name that we are responsible for", "group", cr.Spec.IssuerRef.Group)
 
 		return reconcile.Result{}, nil
 	}
 
 	if len(cr.Status.Certificate) > 0 {
-		log.V(4).Info("existing certificate data found in status, skipping already completed certificate request")
+		log.Info("existing certificate data found in status, skipping already completed certificate request")
 
 		return reconcile.Result{}, nil
 	}
@@ -62,26 +64,39 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req reconc
 		return reconcile.Result{}, nil
 	}
 
-	iss := api.Issuer{}
-	issNamespaceName := types.NamespacedName{
-		Namespace: req.Namespace,
-		Name:      cr.Spec.IssuerRef.Name,
+	log.Info("validation ok")
+
+	var issNamespaceName types.NamespacedName
+
+	if cr.Spec.IssuerRef.Kind == "Issuer" {
+		iss := api.Issuer{}
+		issNamespaceName = types.NamespacedName{
+			Namespace: req.Namespace,
+			Name:      cr.Spec.IssuerRef.Name,
+		}
+
+		if err := r.Client.Get(ctx, issNamespaceName, &iss); err != nil {
+			log.Error(err, "failed to retrieve Issuer resource", "namespace", issNamespaceName.Namespace, "name", issNamespaceName.Name)
+			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, certmanager.CertificateRequestReasonPending, fmt.Sprintf("Failed to retrieve Issuer resource %s: %v", issNamespaceName, err))
+
+			return reconcile.Result{}, err
+		}
+
+		if !issuerHasCondition(iss, api.IssuerCondition{Type: api.ConditionReady, Status: api.ConditionTrue}) {
+			err := fmt.Errorf("resource %s is not ready", issNamespaceName)
+			log.Error(err, "issuer failed readiness checks", "namespace", issNamespaceName.Namespace, "name", issNamespaceName.Name)
+			_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, certmanager.CertificateRequestReasonPending, fmt.Sprintf("Issuer %s is not Ready", issNamespaceName))
+
+			return reconcile.Result{}, err
+		}
+	} else if cr.Spec.IssuerRef.Group == "ClusterIssuer" {
+		issNamespaceName = types.NamespacedName{
+			Namespace: "",
+			Name:      cr.Spec.IssuerRef.Name,
+		}
 	}
 
-	if err := r.Client.Get(ctx, issNamespaceName, &iss); err != nil {
-		log.Error(err, "failed to retrieve Issuer resource", "namespace", issNamespaceName.Namespace, "name", issNamespaceName.Name)
-		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, certmanager.CertificateRequestReasonPending, fmt.Sprintf("Failed to retrieve Issuer resource %s: %v", issNamespaceName, err))
-
-		return reconcile.Result{}, err
-	}
-
-	if !issuerHasCondition(iss, api.IssuerCondition{Type: api.ConditionReady, Status: api.ConditionTrue}) {
-		err := fmt.Errorf("resource %s is not ready", issNamespaceName)
-		log.Error(err, "issuer failed readiness checks", "namespace", issNamespaceName.Namespace, "name", issNamespaceName.Name)
-		_ = r.setStatus(ctx, cr, cmmeta.ConditionFalse, certmanager.CertificateRequestReasonPending, fmt.Sprintf("Issuer %s is not Ready", issNamespaceName))
-
-		return reconcile.Result{}, err
-	}
+	log.WithValues("issuer", issNamespaceName).Info("process")
 
 	// Load the provisioner that will sign the CertificateRequest
 	p, ok := provisioners.Load(issNamespaceName)

@@ -15,6 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// Clock is defined as a package var so it can be stubbed out during tests.
+var Clock clock.Clock = clock.RealClock{}
+
 // SetIssuerCondition will set a condition on the given Issuer.
 //
 // If no condition of the same type exists, the condition will be inserted with
@@ -26,10 +29,10 @@ import (
 // If a condition of the same type and different state already exists, the
 // condition will be updated and the LastTransitionTime set to the current
 // time.
-func SetIssuerCondition(ctx context.Context, status *api.IssuerStatus, conditionType api.ConditionType, conditionStatus api.ConditionStatus, cl clock.Clock, reason, message string) {
+func SetIssuerCondition(ctx context.Context, status *api.IssuerStatus, conditionType api.ConditionType, conditionStatus api.ConditionStatus, reason, message string) {
 	log := log.FromContext(ctx)
 
-	now := metav1.NewTime(cl.Now())
+	now := metav1.NewTime(Clock.Now())
 	c := api.IssuerCondition{
 		Type:               conditionType,
 		Status:             conditionStatus,

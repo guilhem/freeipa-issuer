@@ -52,6 +52,9 @@ type IssuerSpec struct {
 
 	// +kubebuilder:default=false
 	Insecure bool `json:"insecure"`
+
+	// +kubebuilder:default=false
+	IgnoreError bool `json:"ignoreError"`
 }
 
 // IssuerStatus defines the observed state of Issuer

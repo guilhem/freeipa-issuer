@@ -25,7 +25,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"k8s.io/utils/clock"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -83,7 +82,6 @@ func main() {
 	if err = (&controllers.IssuerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Clock:  clock.RealClock{},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Issuer")
 		os.Exit(1)
@@ -91,7 +89,6 @@ func main() {
 	if err = (&controllers.ClusterIssuerReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
-		Clock:  clock.RealClock{},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterIssuer")
 		os.Exit(1)

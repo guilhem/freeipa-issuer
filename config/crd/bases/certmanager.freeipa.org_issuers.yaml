@@ -52,6 +52,9 @@ spec:
                 description: Host remote FreeIPA server
                 minLength: 1
                 type: string
+              ignoreError:
+                default: false
+                type: boolean
               insecure:
                 default: false
                 type: boolean
@@ -100,6 +103,7 @@ spec:
             - addService
             - ca
             - host
+            - ignoreError
             - insecure
             - password
             - serviceName
