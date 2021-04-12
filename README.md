@@ -93,11 +93,11 @@ spec:
   #placing a host in the TLS config will indicate a certificate should be created
   tls:
     - hosts:
-      - www.exapmle.com
+      - www.example.com
       #The certificate will be stored in this secret
       secretName: example-cert
   rules:
-    - host: www.exapmle.com
+    - host: www.example.com
       http:
         paths:
           - path: /
