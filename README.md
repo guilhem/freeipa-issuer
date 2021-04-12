@@ -87,7 +87,7 @@ metadata:
     #The group of the out of tree issuer is needed for cert-manager to find it
     cert-manager.io/issuer-group: certmanager.freeipa.org
     #Specify a common name for the certificate
-    cert-manager.io/common-name: www.exapmle.com
+    cert-manager.io/common-name: www.example.com
 
 spec:
   #placing a host in the TLS config will indicate a certificate should be created
@@ -105,4 +105,3 @@ spec:
               serviceName: backend
               servicePort: 80
 ```
-
