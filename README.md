@@ -7,7 +7,7 @@ A [cert-manager](https://cert-manager.io) external issuer to be used with [FreeI
 - kubernetes
 - cert-manager **1.0+**
 - [kustomize](https://github.com/kubernetes-sigs/kustomize)
-- Kubernetes worker nodes adopted into FreeIPA domain (for use with self signed certificate)
+- optional: Kubernetes worker nodes adopted into FreeIPA domain (for use with self signed certificate)
 
 ## Install
 
