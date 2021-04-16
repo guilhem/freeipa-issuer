@@ -57,7 +57,7 @@ spec:
   addPrincipal: true
   ca: ipa
   # Do not check certificate of IPA server connection
-  insecure: false
+  insecure: true
   # This fixes a bug when adding a service
   ignoreError: true
 
