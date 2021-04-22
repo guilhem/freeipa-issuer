@@ -3,7 +3,7 @@ module github.com/guilhem/freeipa-issuer
 go 1.13
 
 require (
-	github.com/jetstack/cert-manager v1.1.0
+	github.com/jetstack/cert-manager v1.3.1
 	github.com/onsi/ginkgo v1.14.1
 	github.com/onsi/gomega v1.10.2
 	github.com/tehwalris/go-freeipa v0.0.0-20200322083409-e462fc554b76
