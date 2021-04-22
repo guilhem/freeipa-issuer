@@ -57,7 +57,7 @@ spec:
   addPrincipal: true
   ca: ipa
   # Do not check certificate of IPA server connection
-  insecure: true
+  insecure: true # unless you can create your own container and inject IPA server CA as trusted.
   # This fixes a bug when adding a service
   ignoreError: true
 
