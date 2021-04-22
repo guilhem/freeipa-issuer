@@ -1,0 +1,15 @@
+# permissions to approve all certmanager.freeipa.org requests
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cert-manager-controller-approve:certmanager-freeipa-org
+rules:
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - signers
+  verbs:
+  - approve
+  resourceNames:
+  - clusterissuers.certmanager.freeipa.org/*
+  - issuers.certmanager.freeipa.org/*
