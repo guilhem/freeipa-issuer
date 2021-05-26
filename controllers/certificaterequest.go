@@ -143,7 +143,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req reconc
 
 			return reconcile.Result{}, err
 		}
-	} else if cr.Spec.IssuerRef.Group == "ClusterIssuer" {
+	} else if cr.Spec.IssuerRef.Kind == "ClusterIssuer" {
 		issNamespaceName = types.NamespacedName{
 			Namespace: "",
 			Name:      cr.Spec.IssuerRef.Name,
