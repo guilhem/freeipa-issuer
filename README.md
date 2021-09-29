@@ -1,5 +1,7 @@
 # FreeIPA Issuer
 
+[![CodeQL](https://github.com/guilhem/freeipa-issuer/workflows/CodeQL/badge.svg)](https://github.com/guilhem/freeipa-issuer/actions?query=workflow%3ACodeQL)
+
 A [cert-manager](https://cert-manager.io) external issuer to be used with [FreeIPA](https://www.freeipa.org/).
 
 ## Prerequisite
