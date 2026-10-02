@@ -27,13 +27,21 @@ spec:
         - /manager
         args:
         - --enable-leader-election
+        # Metrics are served over HTTPS and need a token allowed to GET /metrics
+        # (see config/rbac/auth_proxy_client_clusterrole.yaml).
+        - --metrics-addr=:8443
         image: controller:latest
         name: manager
+        ports:
+        - containerPort: 8443
+          name: https
         resources:
+          # Baseline for a small test cluster (52-55 MiB measured resident).
+          # Tune memory for your cluster size and workload.
           limits:
             cpu: 100m
-            memory: 30Mi
+            memory: 128Mi
           requests:
             cpu: 100m
-            memory: 20Mi
+            memory: 64Mi
       terminationGracePeriodSeconds: 10

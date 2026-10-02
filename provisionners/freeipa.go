@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
+	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/cert-manager/cert-manager/pkg/util/pki"
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
-	certmanager "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	"github.com/jetstack/cert-manager/pkg/util/pki"
 	"github.com/tehwalris/go-freeipa/freeipa"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
