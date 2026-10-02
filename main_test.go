@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -13,10 +14,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	authenticationv1 "k8s.io/api/authentication/v1"
@@ -90,6 +93,8 @@ func TestManagerMetrics(t *testing.T) {
 
 	var deployment appsv1.Deployment
 	var service corev1.Service
+	var metricsCertificate cmapi.Certificate
+	var metricsIssuer cmapi.Issuer
 	rendered := run("make", "--no-print-directory", "-s", "build-manifests")
 	decoder := yamlutil.NewYAMLOrJSONDecoder(bytes.NewReader(rendered), 4096)
 	for {
@@ -110,6 +115,20 @@ func TestManagerMetrics(t *testing.T) {
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, &service); err != nil {
 				t.Fatal(err)
 			}
+		case "Certificate", "Issuer":
+			if obj.GetAPIVersion() != "cert-manager.io/v1" {
+				t.Fatalf("metrics certificate resource uses unexpected API: %s", obj.GetAPIVersion())
+			}
+			var target interface{} = &metricsCertificate
+			if obj.GetKind() == "Issuer" {
+				target = &metricsIssuer
+			}
+			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, target); err != nil {
+				t.Fatal(err)
+			}
+			// This validates the rendered API objects, not issuance: envtest
+			// does not run the cert-manager controller or its webhook.
+			create(obj)
 		}
 	}
 	ns := deployment.Namespace
@@ -127,6 +146,28 @@ func TestManagerMetrics(t *testing.T) {
 		container.Ports[0].ContainerPort != 8443 || !strings.Contains(strings.Join(container.Args, " "), "--metrics-addr=:8443") {
 		t.Fatalf("metrics Service does not target the deployed listener: %+v / %+v", service.Spec, container)
 	}
+	serviceDNS := service.Name + "." + ns + ".svc"
+	certSpec := metricsCertificate.Spec
+	if metricsCertificate.Name != "freeipa-issuer-metrics-serving-cert" || metricsCertificate.Namespace != ns ||
+		metricsIssuer.Name != "freeipa-issuer-metrics-selfsigned" || metricsIssuer.Namespace != ns || metricsIssuer.Spec.SelfSigned == nil ||
+		certSpec.IssuerRef.Name != metricsIssuer.Name || certSpec.IssuerRef.Kind != "Issuer" || certSpec.IssuerRef.Group != "cert-manager.io" ||
+		!slices.Equal(certSpec.DNSNames, []string{serviceDNS}) || certSpec.SecretName != "metrics-server-cert" ||
+		certSpec.PrivateKey == nil || certSpec.PrivateKey.RotationPolicy != cmapi.RotationPolicyAlways ||
+		certSpec.Subject == nil || len(certSpec.Subject.Organizations) == 0 || strings.TrimSpace(certSpec.Subject.Organizations[0]) == "" {
+		t.Fatalf("invalid metrics certificate identity: Certificate=%+v Issuer=%+v", metricsCertificate, metricsIssuer)
+	}
+	mountIndex := slices.IndexFunc(container.VolumeMounts, func(m corev1.VolumeMount) bool { return m.Name == "metrics-certs" })
+	volumeIndex := slices.IndexFunc(deployment.Spec.Template.Spec.Volumes, func(v corev1.Volume) bool { return v.Name == "metrics-certs" })
+	if mountIndex < 0 || volumeIndex < 0 || !slices.Contains(container.Args, "--metrics-cert-dir=/etc/metrics-certs") {
+		t.Fatal("missing metrics certificate directory argument, volume or mount")
+	}
+	mount := container.VolumeMounts[mountIndex]
+	secret := deployment.Spec.Template.Spec.Volumes[volumeIndex].Secret
+	if mount.MountPath != "/etc/metrics-certs" || !mount.ReadOnly || mount.SubPath != "" || mount.SubPathExpr != "" ||
+		secret == nil || secret.SecretName != certSpec.SecretName || (secret.Optional != nil && *secret.Optional) || len(secret.Items) != 0 {
+		t.Fatalf("metrics certificate must use a required read-only directory Secret mount: mount=%+v secret=%+v", mount, secret)
+	}
+	t.Logf("cert-manager v1 objects accepted: %s -> %s -> Secret %s; DNS=%s; issuance not exercised", metricsCertificate.Name, metricsIssuer.Name, certSpec.SecretName, serviceDNS)
 	managerSubject := rbacv1.Subject{Kind: "ServiceAccount", Name: sa, Namespace: ns}
 	for _, name := range []string{"freeipa-issuer-manager-rolebinding", "freeipa-issuer-proxy-rolebinding", "freeipa-issuer-leader-election-rolebinding"} {
 		var subjects []rbacv1.Subject
@@ -220,7 +261,7 @@ func TestManagerMetrics(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			addr, httpsClient := startTestManager(t, bin, kubeconfigPath)
+			addr, httpsClient, certDir := startTestManager(t, bin, kubeconfigPath, serviceDNS)
 			check := func(name, token string, want int, bodyContains string) {
 				t.Helper()
 				var last string
@@ -252,6 +293,38 @@ func TestManagerMetrics(t *testing.T) {
 			case "shipped-rbac":
 				check("token without metrics-reader", deniedToken, http.StatusForbidden, "Authorization denied")
 				check("metrics-reader", readerToken, http.StatusOK, "controller_runtime_reconcile_total")
+				for _, invalid := range []string{"wrong-SAN", "untrusted-certificate"} {
+					t.Run(invalid, func(t *testing.T) {
+						transport := httpsClient.Transport.(*http.Transport).Clone()
+						defer transport.CloseIdleConnections()
+						if invalid == "wrong-SAN" {
+							transport.TLSClientConfig.ServerName = "wrong.example.test"
+						} else {
+							transport.TLSClientConfig.RootCAs = x509.NewCertPool()
+						}
+						res, err := (&http.Client{Transport: transport, Timeout: 5 * time.Second}).Get("https://" + addr + "/metrics")
+						if res != nil {
+							_ = res.Body.Close()
+						}
+						var hostnameError x509.HostnameError
+						var authorityError x509.UnknownAuthorityError
+						if invalid == "wrong-SAN" && !errors.As(err, &hostnameError) || invalid == "untrusted-certificate" && !errors.As(err, &authorityError) {
+							t.Fatalf("wanted TLS rejection for %s, got %v", invalid, err)
+						}
+						t.Logf("TLS rejected %s before HTTP", invalid)
+					})
+				}
+				// Projected Secrets swap ..data atomically. Trust only the new
+				// self-signed certificate and use new TLS connections, so an old
+				// cached server certificate cannot make this check pass.
+				rotatedPEM := writeTestMetricsCertificate(t, certDir, "..rotated", serviceDNS)
+				rotatedTransport := httpsClient.Transport.(*http.Transport).Clone()
+				rotatedTransport.DisableKeepAlives = true
+				rotatedTransport.TLSClientConfig.RootCAs = x509.NewCertPool()
+				rotatedTransport.TLSClientConfig.RootCAs.AppendCertsFromPEM(rotatedPEM)
+				t.Cleanup(rotatedTransport.CloseIdleConnections)
+				httpsClient = &http.Client{Transport: rotatedTransport, Timeout: 5 * time.Second}
+				check("native certificate reload after atomic ..data swap", readerToken, http.StatusOK, "controller_runtime_reconcile_total")
 				// A missing Secret keeps this fixture offline while proving that the
 				// non-admin controller can read and update an Issuer's status.
 				issuer := &api.Issuer{ObjectMeta: metav1.ObjectMeta{Name: "offline", Namespace: ns}, Spec: api.IssuerSpec{
@@ -282,29 +355,35 @@ func TestManagerMetrics(t *testing.T) {
 			t.Fatalf("insecure flag accepted: %v\n%s", err, out)
 		}
 	})
+	t.Run("explicit-missing-certificate-directory-fails", func(t *testing.T) {
+		missing := filepath.Join(t.TempDir(), "missing")
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, bin, "--metrics-cert-dir="+missing)
+		cmd.Env = append(os.Environ(), "KUBECONFIG="+filepath.Join(missing, "kubeconfig"), "KUBERNETES_SERVICE_HOST=", "KUBERNETES_SERVICE_PORT=")
+		out, err := cmd.CombinedOutput()
+		if err == nil || ctx.Err() != nil || !strings.Contains(string(out), "unable to load metrics serving certificate") || !strings.Contains(string(out), "tls.crt") {
+			t.Fatalf("missing certificate directory did not fail before loading cluster configuration: %v\n%s", err, out)
+		}
+		t.Log("explicit missing directory fails before cluster configuration; no localhost certificate fallback")
+	})
 }
 
-func startTestManager(t *testing.T, bin, kubeconfig string) (string, *http.Client) {
+func startTestManager(t *testing.T, bin, kubeconfig, serviceDNS string) (string, *http.Client, string) {
 	t.Helper()
 	dir := t.TempDir()
-	// Give only this local subprocess a trusted serving certificate. This tests
-	// HTTPS without a TLS verification bypass, using controller-runtime's CertDir.
-	certPEM, keyPEM, err := certutil.GenerateSelfSignedCertKey("localhost", []net.IP{net.ParseIP("127.0.0.1")}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	certDir := filepath.Join(dir, "k8s-metrics-server", "serving-certs")
-	if err := os.MkdirAll(certDir, 0700); err != nil {
-		t.Fatal(err)
-	}
-	for name, data := range map[string][]byte{"tls.crt": certPEM, "tls.key": keyPEM} {
-		if err := os.WriteFile(filepath.Join(certDir, name), data, 0600); err != nil {
+	// Use the rendered Service identity even though envtest has no pod network.
+	// Model a directory Secret mount, including its stable ..data symlinks.
+	certDir := filepath.Join(dir, "metrics-certs")
+	certPEM := writeTestMetricsCertificate(t, certDir, "..initial", serviceDNS)
+	for _, name := range []string{"tls.crt", "tls.key"} {
+		if err := os.Symlink(filepath.Join("..data", name), filepath.Join(certDir, name)); err != nil {
 			t.Fatal(err)
 		}
 	}
 	roots := x509.NewCertPool()
 	roots.AppendCertsFromPEM(certPEM)
-	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS12}}
+	transport := &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots, ServerName: serviceDNS, MinVersion: tls.VersionTLS12}}
 	t.Cleanup(transport.CloseIdleConnections)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -319,7 +398,7 @@ func startTestManager(t *testing.T, bin, kubeconfig string) (string, *http.Clien
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(bin, "--metrics-addr="+addr)
+	cmd := exec.Command(bin, "--metrics-addr="+addr, "--metrics-cert-dir="+certDir)
 	cmd.Env = append(os.Environ(), "KUBECONFIG="+kubeconfig, "TMPDIR="+dir)
 	cmd.Stdout, cmd.Stderr = log, log
 	if err := cmd.Start(); err != nil {
@@ -346,5 +425,28 @@ func startTestManager(t *testing.T, bin, kubeconfig string) (string, *http.Clien
 			t.Logf("manager log:\n%s", out)
 		}
 	})
-	return addr, &http.Client{Transport: transport, Timeout: 12 * time.Second}
+	return addr, &http.Client{Transport: transport, Timeout: 12 * time.Second}, certDir
+}
+
+func writeTestMetricsCertificate(t *testing.T, dir, revision, serviceDNS string) []byte {
+	t.Helper()
+	certPEM, keyPEM, err := certutil.GenerateSelfSignedCertKey(serviceDNS, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, revision), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range map[string][]byte{"tls.crt": certPEM, "tls.key": keyPEM} {
+		if err := os.WriteFile(filepath.Join(dir, revision, name), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(revision, filepath.Join(dir, "..data-next")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(filepath.Join(dir, "..data-next"), filepath.Join(dir, "..data")); err != nil {
+		t.Fatal(err)
+	}
+	return certPEM
 }

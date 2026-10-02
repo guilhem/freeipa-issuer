@@ -151,10 +151,42 @@ request is never signed.
 ### Metrics
 
 The default install serves metrics over HTTPS on port 8443 (`-metrics-addr`) with a
-certificate generated at startup. A client needs a token whose RBAC allows `get` on
-`/metrics`: bind the `freeipa-issuer-metrics-reader` ClusterRole to your
-scraper's ServiceAccount. HTTPS and authentication are always enabled; use
-`-metrics-addr=0` to disable the metrics server.
+cert-manager Certificate for
+`freeipa-issuer-controller-manager-metrics-service.freeipa-issuer-system.svc`.
+The built-in `cert-manager.io` SelfSigned Issuer bootstraps it independently of
+FreeIPA. The controller waits for the required `metrics-server-cert` Secret;
+cert-manager must be running and allowed to approve its own CertificateRequests.
+
+The Secret is mounted read-only at `/etc/metrics-certs` (`--metrics-cert-dir`).
+Missing or invalid certificate files cause startup to fail; certificate updates
+are reloaded by controller-runtime. Custom mounts must use the whole directory,
+without `subPath`, so Kubernetes can project renewed certificates.
+
+Scrapers need both a trusted certificate and a token allowed to `get /metrics`:
+bind the `freeipa-issuer-metrics-reader` ClusterRole to the scraper's ServiceAccount.
+Retrieve the public trust material through your authenticated Kubernetes access:
+
+```sh
+kubectl -n freeipa-issuer-system wait --for=condition=Ready --timeout=180s certificate/freeipa-issuer-metrics-serving-cert
+kubectl -n freeipa-issuer-system get secret metrics-server-cert -o jsonpath='{.data.tls\.crt}' | base64 --decode > metrics-ca.crt
+```
+
+Configure the scraper to trust this certificate and verify the Service DNS name.
+The self-signed certificate and key rotate on renewal: refresh the scraper's
+trust bundle whenever the Certificate changes. For an existing production trust
+setup, change the Certificate's `issuerRef` to an independent CA-backed issuer
+and distribute that CA's trust bundle instead. Do not use this FreeIPA controller
+to issue its own startup certificate. See [cert-manager trust guidance](https://cert-manager.io/docs/configuration/selfsigned/#trust).
+
+If an overlay changes the namespace or name prefix, also patch the Certificate's
+`spec.dnsNames` to the final Service DNS name. Its `secretName` and the Deployment
+volume reference must remain identical.
+
+HTTPS and authentication are always enabled. `-metrics-addr=0` disables the
+listener; to remove the certificate startup dependency too, remove the metrics
+volume and volume mount from the Deployment. Running locally without
+`--metrics-cert-dir` uses an ephemeral localhost certificate, unsuitable for
+scraping through a Kubernetes Service.
 
 ## Usage
 

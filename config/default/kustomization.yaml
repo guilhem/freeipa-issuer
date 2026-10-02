@@ -12,3 +12,33 @@ resources:
 - ../crd
 - ../rbac
 - ../manager
+
+# Resolve the metrics identity after this installation's name/namespace changes.
+# Overlays that change these again must set dnsNames to their final Service DNS.
+replacements:
+- source:
+    kind: Service
+    name: controller-manager-metrics-service
+    fieldPath: metadata.name
+  targets:
+  - select:
+      group: cert-manager.io
+      kind: Certificate
+      name: metrics-serving-cert
+    fieldPaths: [spec.dnsNames.0]
+    options:
+      delimiter: '.'
+      index: 0
+- source:
+    kind: Service
+    name: controller-manager-metrics-service
+    fieldPath: metadata.namespace
+  targets:
+  - select:
+      group: cert-manager.io
+      kind: Certificate
+      name: metrics-serving-cert
+    fieldPaths: [spec.dnsNames.0]
+    options:
+      delimiter: '.'
+      index: 1

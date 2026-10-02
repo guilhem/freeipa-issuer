@@ -17,8 +17,10 @@ limitations under the License.
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"os"
+	"path/filepath"
 
 	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,20 +56,29 @@ func init() {
 
 func main() {
 	var metricsAddr string
+	var metricsCertDir string
 	var enableLeaderElection bool
 	var disableApprovedCheck bool
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the HTTPS metrics endpoint binds to (0 disables metrics).")
+	flag.StringVar(&metricsCertDir, "metrics-cert-dir", "", "Directory containing metrics tls.crt and tls.key (required for Service DNS verification).")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&disableApprovedCheck, "disable-approved-check", false,
 		"Disables waiting for CertificateRequests to have an approved condition before signing.")
 	flag.Parse()
+	if metricsAddr != "0" && metricsCertDir != "" {
+		if _, err := tls.LoadX509KeyPair(filepath.Join(metricsCertDir, "tls.crt"), filepath.Join(metricsCertDir, "tls.key")); err != nil {
+			setupLog.Error(err, "unable to load metrics serving certificate")
+			os.Exit(1)
+		}
+	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress:    metricsAddr,
+			CertDir:        metricsCertDir,
 			SecureServing:  true,
 			FilterProvider: filters.WithAuthenticationAndAuthorization,
 		},

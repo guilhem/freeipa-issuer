@@ -30,11 +30,16 @@ spec:
         # Metrics are served over HTTPS and need a token allowed to GET /metrics
         # (see config/rbac/auth_proxy_client_clusterrole.yaml).
         - --metrics-addr=:8443
+        - --metrics-cert-dir=/etc/metrics-certs
         image: controller:latest
         name: manager
         ports:
         - containerPort: 8443
           name: https
+        volumeMounts:
+        - name: metrics-certs
+          mountPath: /etc/metrics-certs
+          readOnly: true
         resources:
           # Baseline for a small test cluster (52-55 MiB measured resident).
           # Tune memory for your cluster size and workload.
@@ -44,4 +49,8 @@ spec:
           requests:
             cpu: 100m
             memory: 64Mi
+      volumes:
+      - name: metrics-certs
+        secret:
+          secretName: metrics-server-cert
       terminationGracePeriodSeconds: 10
