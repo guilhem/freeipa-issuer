@@ -1,11 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.22.0
   name: clusterissuers.certmanager.freeipa.org
 spec:
   group: certmanager.freeipa.org
@@ -22,14 +20,19 @@ spec:
         description: ClusterIssuer is the Schema for the clusterissuers API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -52,6 +55,9 @@ spec:
                 description: Host remote FreeIPA server
                 minLength: 1
                 type: string
+              ignoreError:
+                default: false
+                type: boolean
               insecure:
                 default: false
                 type: boolean
@@ -63,16 +69,17 @@ spec:
                       valid secret key.
                     type: string
                   name:
-                    description: Name is unique within a namespace to reference a
+                    description: name is unique within a namespace to reference a
                       secret resource.
                     type: string
                   namespace:
-                    description: Namespace defines the space within which the secret
+                    description: namespace defines the space within which the secret
                       name must be unique.
                     type: string
                 required:
                 - key
                 type: object
+                x-kubernetes-map-type: atomic
               serviceName:
                 default: HTTP
                 type: string
@@ -84,22 +91,24 @@ spec:
                       valid secret key.
                     type: string
                   name:
-                    description: Name is unique within a namespace to reference a
+                    description: name is unique within a namespace to reference a
                       secret resource.
                     type: string
                   namespace:
-                    description: Namespace defines the space within which the secret
+                    description: namespace defines the space within which the secret
                       name must be unique.
                     type: string
                 required:
                 - key
                 type: object
+                x-kubernetes-map-type: atomic
             required:
             - addHost
             - addPrincipal
             - addService
             - ca
             - host
+            - ignoreError
             - insecure
             - password
             - serviceName
@@ -114,30 +123,28 @@ spec:
                     the issuer.
                   properties:
                     lastTransitionTime:
-                      description: LastTransitionTime is the timestamp corresponding
-                        to the last status change of this condition.
+                      description: |-
+                        LastTransitionTime is the timestamp corresponding to the last status
+                        change of this condition.
                       format: date-time
                       type: string
                     message:
-                      description: Message is a human readable description of the
-                        details of the last transition, complementing reason.
+                      description: |-
+                        Message is a human readable description of the details of the last
+                        transition, complementing reason.
                       type: string
                     reason:
-                      description: Reason is a brief machine readable explanation
-                        for the condition's last transition.
+                      description: |-
+                        Reason is a brief machine readable explanation for the condition's last
+                        transition.
                       type: string
                     status:
-                      allOf:
-                      - enum:
-                        - "True"
-                        - "False"
-                        - Unknown
-                      - enum:
-                        - "True"
-                        - "False"
-                        - Unknown
                       description: Status of the condition, one of ('True', 'False',
                         'Unknown').
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
                       type: string
                     type:
                       description: Type of the condition, currently ('Ready').
@@ -155,9 +162,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

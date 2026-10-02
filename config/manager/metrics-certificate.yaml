@@ -1,0 +1,27 @@
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: metrics-selfsigned
+  namespace: system
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: metrics-serving-cert
+  namespace: system
+spec:
+  # This generated Secret is not a Kustomize resource: keep its name in sync
+  # with the Deployment volume. The namespace scopes it to this installation.
+  secretName: metrics-server-cert
+  subject:
+    organizations: [freeipa-issuer metrics]
+  dnsNames:
+  - SERVICE_NAME.SERVICE_NAMESPACE.svc
+  privateKey:
+    rotationPolicy: Always
+  issuerRef:
+    name: metrics-selfsigned
+    kind: Issuer
+    group: cert-manager.io

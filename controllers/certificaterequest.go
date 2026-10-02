@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	cmutil "github.com/cert-manager/cert-manager/pkg/api/util"
+	certmanager "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	api "github.com/guilhem/freeipa-issuer/api/v1beta1"
 	provisioners "github.com/guilhem/freeipa-issuer/provisionners"
-	cmutil "github.com/jetstack/cert-manager/pkg/api/util"
-	certmanager "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -51,7 +51,7 @@ func (r *CertificateRequestReconciler) Reconcile(ctx context.Context, req reconc
 		return reconcile.Result{}, err
 	}
 
-	if cr.Spec.IssuerRef.Group != "" && cr.Spec.IssuerRef.Group != api.GroupVersion.Group {
+	if cr.Spec.IssuerRef.Group != api.GroupVersion.Group {
 		log.Info("resource does not specify an issuerRef group name that we are responsible for", "group", cr.Spec.IssuerRef.Group)
 
 		return reconcile.Result{}, nil

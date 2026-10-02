@@ -1,21 +1,19 @@
-
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
 
-# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
-ifeq (,$(shell go env GOBIN))
-GOBIN=$(shell go env GOPATH)/bin
-else
-GOBIN=$(shell go env GOBIN)
-endif
+# Pinned tools, run through `go run` so there is nothing to install.
+CONTROLLER_GEN ?= go run sigs.k8s.io/controller-tools/cmd/controller-gen@v0.22.0
+KUSTOMIZE ?= go run sigs.k8s.io/kustomize/kustomize/v5@v5.8.2
+SETUP_ENVTEST ?= go run sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.25.2
+# Kubernetes version of the envtest control plane (cert-manager 1.21 supports 1.33 to 1.36).
+ENVTEST_K8S_VERSION ?= 1.36.x
 
 all: manager
 
-# Run tests
+# Run tests (needs the envtest binaries, downloaded on first use)
 test: generate fmt vet manifests
-	go test ./... -coverprofile cover.out
+	assets="$$($(SETUP_ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" && \
+		KUBEBUILDER_ASSETS="$$assets" go test ./... -coverprofile cover.out
 
 # Build manager binary
 manager: generate fmt vet
@@ -26,21 +24,25 @@ run: generate fmt vet manifests
 	go run ./main.go
 
 # Install CRDs into a cluster
-install: manifests kustomize
+install: manifests
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
 
 # Uninstall CRDs from a cluster
-uninstall: manifests kustomize
+uninstall: manifests
 	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-deploy: manifests kustomize
+deploy: manifests
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
 
+# Render the default kustomization
+build-manifests:
+	@$(KUSTOMIZE) build config/default
+
 # Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+manifests:
+	$(CONTROLLER_GEN) crd rbac:roleName=manager-role paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
 fmt:
@@ -51,7 +53,7 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: controller-gen
+generate:
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
@@ -62,34 +64,4 @@ docker-build:
 docker-push:
 	docker push ${IMG}
 
-# find or download controller-gen
-# download controller-gen if necessary
-controller-gen:
-ifeq (, $(shell which controller-gen))
-	@{ \
-	set -e ;\
-	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$CONTROLLER_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1 ;\
-	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
-	}
-CONTROLLER_GEN=$(GOBIN)/controller-gen
-else
-CONTROLLER_GEN=$(shell which controller-gen)
-endif
-
-kustomize:
-ifeq (, $(shell which kustomize))
-	@{ \
-	set -e ;\
-	KUSTOMIZE_GEN_TMP_DIR=$$(mktemp -d) ;\
-	cd $$KUSTOMIZE_GEN_TMP_DIR ;\
-	go mod init tmp ;\
-	go get sigs.k8s.io/kustomize/kustomize/v3@v3.5.4 ;\
-	rm -rf $$KUSTOMIZE_GEN_TMP_DIR ;\
-	}
-KUSTOMIZE=$(GOBIN)/kustomize
-else
-KUSTOMIZE=$(shell which kustomize)
-endif
+.PHONY: all test manager run install uninstall deploy build-manifests manifests fmt vet generate docker-build docker-push
